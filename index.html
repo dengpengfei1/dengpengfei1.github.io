@@ -133,6 +133,73 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-jQuery" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/07/20/jQuery/">jQuery 原理介绍</a>
+    </h1>
+  
+
+        
+        <a href="/2015/07/20/jQuery/" class="archive-article-date">
+  	<time datetime="2015-07-20T12:13:33.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2015-07-20</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>jQuery 通过把代码放在一个自执行的匿名函数中来保护命名空间，使用 window.jQuery = window.$ = jQuery 把 jQuery 对象暴露到全局作用域。这里主要对 jQuery 对象的实例化过程、插件扩展原理、隐式迭代、链式操作、特定api的实现原理等进行介绍。 </p>
+<h2 id="jQuery-对象的实例化过程"><a href="#jQuery-对象的实例化过程" class="headerlink" title="jQuery 对象的实例化过程"></a>jQuery 对象的实例化过程</h2><p>$ 是函数，也是对象。jQuery 在 $ 函数内部返回了一个实例对象。这个实例对象的构造函数 init 定义在 $ 的原型对象上。init 函数内部进行了元素的获取，并将它们添加到 $ 对象上，获取的元素形成了一个伪数组。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">$</span>(<span class="params">selector</span>)</span>&#123;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> $.prototype.init(selector);</div><div class="line">&#125;</div><div class="line"></div><div class="line">$.prototype = &#123;</div><div class="line">    init : <span class="function"><span class="keyword">function</span>(<span class="params">selector</span>)</span>&#123;</div><div class="line">      <span class="keyword">var</span> elements = <span class="built_in">document</span>.getElementsByTagName(selector);</div><div class="line">      <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; elements.length; i++) &#123;</div><div class="line">        <span class="keyword">this</span>[i] = elements[i];</div><div class="line">      &#125;</div><div class="line">      <span class="keyword">this</span>.length = elements.length;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h2 id="apply"><a href="#apply" class="headerlink" title="apply"></a>apply</h2><p>apply方法的作用和call 方法类似，只有一个区别，就是 call方法接受的是若干个参数的列表，apply方法 调用的时候，参数必须是一个数组，然后在执行的时候，会将数组内部的元素一个一个拿出来，与形参一一对应进行传递。apply 只处理一个参数数组，其它的不处理，传多个数组，后边的数组忽略。<br>如果第一个参数指定了 null 或者 undefined 则内部 this 指向 window。<br>下面是apply的语法：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">语法：</div><div class="line">fun.apply(thisArg, [argsArray])</div><div class="line"></div><div class="line">参数：</div><div class="line">  ● thisArg</div><div class="line">  ● argsArray</div><div class="line">apply() 与 call() 非常相似，不同之处在于提供参数的方式。 apply() 使用参数数组而不是一组参数列表。</div></pre></td></tr></table></figure>
+<h3 id="两种方法的小实例："><a href="#两种方法的小实例：" class="headerlink" title="两种方法的小实例："></a>两种方法的小实例：</h3><figure class="highlight javascript"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fn</span> (<span class="params">a, b, c</span>) </span>&#123;</div><div class="line">     <span class="built_in">console</span>.log(<span class="keyword">this</span>, a, b, c)</div><div class="line">     <span class="keyword">return</span> <span class="number">123</span></div><div class="line">   &#125;</div><div class="line"></div><div class="line">   <span class="comment">// call 和 apply 的返回值就是被调用函数的返回值</span></div><div class="line">   <span class="keyword">var</span> ret = fn.call(<span class="keyword">this</span>, [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])		</div><div class="line">   <span class="built_in">console</span>.log(ret)   <span class="comment">//输出 window，[1,2,3],undefined，undefined</span></div><div class="line">   <span class="comment">//这里call传了一个数组，算一个参数，而函数需要三个参数</span></div><div class="line">  </div><div class="line"></div><div class="line">   <span class="comment">// apply 只处理一个参数数组，其它的不处理，传多个数组，后边的数组忽略</span></div><div class="line">   <span class="keyword">var</span> fin = fn.apply(<span class="keyword">this</span>, [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])</div><div class="line">   <span class="built_in">console</span>.log(fin) <span class="comment">//输出 window，1，2，3</span></div></pre></td></tr></table></figure>
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2015/07/20/jQuery/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-call&amp;apply" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
